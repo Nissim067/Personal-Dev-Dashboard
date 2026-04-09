@@ -6,10 +6,44 @@ import { Navbar } from './components/Navbar'
 import { Sidebar } from './components/Sidebar'
 import { WidgetCard } from './components/WidgetCard'
 import { PomodoroTimer } from './components/PomodoroTimer'
+import { Analytics } from './components/Analytics'
 import { askAI, fetchGithubUser } from './api'
 import './App.css'
 
 const TASKS_STORAGE_KEY = 'dev-dashboard.tasks'
+const PRODUCTIVITY_STORAGE_KEY = 'dev-dashboard.productivity'
+
+function dayKey(date = new Date()) {
+  return date.toISOString().slice(0, 10)
+}
+
+function readProductivity() {
+  try {
+    const raw = localStorage.getItem(PRODUCTIVITY_STORAGE_KEY)
+    if (!raw) return { tasksCompleted: {}, focusTime: {} }
+    const parsed = JSON.parse(raw)
+    return {
+      tasksCompleted:
+        parsed?.tasksCompleted && typeof parsed.tasksCompleted === 'object'
+          ? parsed.tasksCompleted
+          : {},
+      focusTime:
+        parsed?.focusTime && typeof parsed.focusTime === 'object'
+          ? parsed.focusTime
+          : {},
+    }
+  } catch {
+    return { tasksCompleted: {}, focusTime: {} }
+  }
+}
+
+function writeProductivity(next) {
+  try {
+    localStorage.setItem(PRODUCTIVITY_STORAGE_KEY, JSON.stringify(next))
+  } catch {
+    // ignore write failures
+  }
+}
 
 function App() {
   const [count, setCount] = useState(0)
@@ -104,9 +138,28 @@ function App() {
   }
 
   function toggleTask(id) {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)),
-    )
+    setTasks((prev) => {
+      const next = prev.map((t) =>
+        t.id === id ? { ...t, completed: !t.completed } : t,
+      )
+
+      const before = prev.find((t) => t.id === id)
+      const after = next.find((t) => t.id === id)
+
+      if (before && after && before.completed !== after.completed) {
+        const prod = readProductivity()
+        const key = dayKey()
+        const cur = Number(prod.tasksCompleted?.[key] || 0)
+        const delta = after.completed ? 1 : -1
+        const updated = Math.max(0, cur + delta)
+        writeProductivity({
+          ...prod,
+          tasksCompleted: { ...prod.tasksCompleted, [key]: updated },
+        })
+      }
+
+      return next
+    })
   }
 
   function deleteTask(id) {
@@ -213,7 +266,21 @@ function App() {
               title="Focus Timer"
             >
               <p>25-minute Pomodoro session</p>
-              <PomodoroTimer />
+              <PomodoroTimer
+                onFocusSeconds={(seconds) => {
+                  const s = Number(seconds || 0)
+                  if (!Number.isFinite(s) || s <= 0) return
+                  const minutes = Math.max(1, Math.round(s / 60))
+
+                  const prod = readProductivity()
+                  const key = dayKey()
+                  const cur = Number(prod.focusTime?.[key] || 0)
+                  writeProductivity({
+                    ...prod,
+                    focusTime: { ...prod.focusTime, [key]: cur + minutes },
+                  })
+                }}
+              />
             </WidgetCard>
 
             <WidgetCard
@@ -291,6 +358,12 @@ function App() {
                   </li>
                 ))}
               </ul>
+            </WidgetCard>
+          </section>
+
+          <section>
+            <WidgetCard title="Productivity Analytics">
+              <Analytics />
             </WidgetCard>
           </section>
 

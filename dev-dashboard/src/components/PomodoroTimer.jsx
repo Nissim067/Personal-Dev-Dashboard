@@ -9,10 +9,11 @@ function formatTime(totalSeconds) {
   return `${mm}:${ss}`
 }
 
-export function PomodoroTimer() {
+export function PomodoroTimer({ onFocusSeconds }) {
   const [secondsLeft, setSecondsLeft] = useState(DEFAULT_SECONDS)
   const [isRunning, setIsRunning] = useState(false)
   const intervalRef = useRef(null)
+  const elapsedRef = useRef(0)
 
   useEffect(() => {
     if (!isRunning) return
@@ -21,8 +22,10 @@ export function PomodoroTimer() {
       setSecondsLeft((prev) => {
         if (prev <= 1) {
           setIsRunning(false)
+          elapsedRef.current += 1
           return 0
         }
+        elapsedRef.current += 1
         return prev - 1
       })
     }, 1000)
@@ -36,6 +39,10 @@ export function PomodoroTimer() {
   useEffect(() => {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current)
+      if (elapsedRef.current > 0) {
+        onFocusSeconds?.(elapsedRef.current)
+        elapsedRef.current = 0
+      }
     }
   }, [])
 
@@ -46,11 +53,19 @@ export function PomodoroTimer() {
 
   function handlePause() {
     setIsRunning(false)
+    if (elapsedRef.current > 0) {
+      onFocusSeconds?.(elapsedRef.current)
+      elapsedRef.current = 0
+    }
   }
 
   function handleReset() {
     setIsRunning(false)
     setSecondsLeft(DEFAULT_SECONDS)
+    if (elapsedRef.current > 0) {
+      onFocusSeconds?.(elapsedRef.current)
+      elapsedRef.current = 0
+    }
   }
 
   return (
