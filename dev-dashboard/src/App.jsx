@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import reactLogo from './assets/react.svg'
 import viteLogo from './assets/vite.svg'
 import heroImg from './assets/hero.png'
@@ -8,12 +8,34 @@ import { WidgetCard } from './components/WidgetCard'
 import { fetchGithubUser } from './api'
 import './App.css'
 
+const TASKS_STORAGE_KEY = 'dev-dashboard.tasks'
+
 function App() {
   const [count, setCount] = useState(0)
   const [username, setUsername] = useState('octocat')
   const [githubUser, setGithubUser] = useState(null)
   const [githubError, setGithubError] = useState('')
   const [githubLoading, setGithubLoading] = useState(false)
+
+  const [tasks, setTasks] = useState(() => {
+    try {
+      const raw = localStorage.getItem(TASKS_STORAGE_KEY)
+      if (!raw) return []
+      const parsed = JSON.parse(raw)
+      if (!Array.isArray(parsed)) return []
+      return parsed
+        .filter((t) => t && typeof t === 'object')
+        .map((t) => ({
+          id: String(t.id ?? ''),
+          text: String(t.text ?? ''),
+          completed: Boolean(t.completed),
+        }))
+        .filter((t) => t.id && t.text)
+    } catch {
+      return []
+    }
+  })
+  const [newTaskText, setNewTaskText] = useState('')
 
   async function handleGithubLookup(e) {
     e.preventDefault()
@@ -29,6 +51,43 @@ function App() {
     } finally {
       setGithubLoading(false)
     }
+  }
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(TASKS_STORAGE_KEY, JSON.stringify(tasks))
+    } catch {
+      // ignore write failures (private mode/quota/etc)
+    }
+  }, [tasks])
+
+  const remainingCount = useMemo(
+    () => tasks.reduce((acc, t) => acc + (t.completed ? 0 : 1), 0),
+    [tasks],
+  )
+
+  function addTask(e) {
+    e.preventDefault()
+    const text = newTaskText.trim()
+    if (!text) return
+
+    const id =
+      typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(16).slice(2)}`
+
+    setTasks((prev) => [{ id, text, completed: false }, ...prev])
+    setNewTaskText('')
+  }
+
+  function toggleTask(id) {
+    setTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, completed: !t.completed } : t)),
+    )
+  }
+
+  function deleteTask(id) {
+    setTasks((prev) => prev.filter((t) => t.id !== id))
   }
 
   return (
@@ -121,64 +180,53 @@ function App() {
               </ul>
             </WidgetCard>
             <WidgetCard
-              id="social"
+              id="tasks"
               icon={
                 <svg className="icon" role="presentation" aria-hidden="true">
                   <use href="/icons.svg#social-icon"></use>
                 </svg>
               }
-              title="Connect with us"
+              title="Tasks"
             >
-              <p>Join the Vite community</p>
-              <ul>
-                <li>
-                  <a href="https://github.com/vitejs/vite" target="_blank">
-                    <svg
-                      className="button-icon"
-                      role="presentation"
-                      aria-hidden="true"
+              <p>
+                {tasks.length === 0
+                  ? 'No tasks yet'
+                  : `${remainingCount} remaining`}
+              </p>
+              <form className="tasks-form" onSubmit={addTask}>
+                <input
+                  className="tasks-input"
+                  value={newTaskText}
+                  onChange={(e) => setNewTaskText(e.target.value)}
+                  placeholder="Add a task…"
+                  aria-label="Add a task"
+                />
+                <button className="tasks-button" type="submit">
+                  Add
+                </button>
+              </form>
+
+              <ul className="tasks-list" aria-label="Tasks">
+                {tasks.map((t) => (
+                  <li key={t.id} className={t.completed ? 'is-complete' : ''}>
+                    <label className="tasks-item">
+                      <input
+                        type="checkbox"
+                        checked={t.completed}
+                        onChange={() => toggleTask(t.id)}
+                      />
+                      <span>{t.text}</span>
+                    </label>
+                    <button
+                      className="tasks-delete"
+                      type="button"
+                      onClick={() => deleteTask(t.id)}
+                      aria-label={`Delete task: ${t.text}`}
                     >
-                      <use href="/icons.svg#github-icon"></use>
-                    </svg>
-                    GitHub
-                  </a>
-                </li>
-                <li>
-                  <a href="https://chat.vite.dev/" target="_blank">
-                    <svg
-                      className="button-icon"
-                      role="presentation"
-                      aria-hidden="true"
-                    >
-                      <use href="/icons.svg#discord-icon"></use>
-                    </svg>
-                    Discord
-                  </a>
-                </li>
-                <li>
-                  <a href="https://x.com/vite_js" target="_blank">
-                    <svg
-                      className="button-icon"
-                      role="presentation"
-                      aria-hidden="true"
-                    >
-                      <use href="/icons.svg#x-icon"></use>
-                    </svg>
-                    X.com
-                  </a>
-                </li>
-                <li>
-                  <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                    <svg
-                      className="button-icon"
-                      role="presentation"
-                      aria-hidden="true"
-                    >
-                      <use href="/icons.svg#bluesky-icon"></use>
-                    </svg>
-                    Bluesky
-                  </a>
-                </li>
+                      Delete
+                    </button>
+                  </li>
+                ))}
               </ul>
             </WidgetCard>
           </section>
