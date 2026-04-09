@@ -6,7 +6,7 @@ import { Navbar } from './components/Navbar'
 import { Sidebar } from './components/Sidebar'
 import { WidgetCard } from './components/WidgetCard'
 import { PomodoroTimer } from './components/PomodoroTimer'
-import { fetchGithubUser } from './api'
+import { askAI, fetchGithubUser } from './api'
 import './App.css'
 
 const TASKS_STORAGE_KEY = 'dev-dashboard.tasks'
@@ -17,6 +17,11 @@ function App() {
   const [githubUser, setGithubUser] = useState(null)
   const [githubError, setGithubError] = useState('')
   const [githubLoading, setGithubLoading] = useState(false)
+
+  const [aiPrompt, setAiPrompt] = useState('')
+  const [aiReply, setAiReply] = useState('')
+  const [aiError, setAiError] = useState('')
+  const [aiLoading, setAiLoading] = useState(false)
 
   const [tasks, setTasks] = useState(() => {
     try {
@@ -51,6 +56,23 @@ function App() {
       setGithubError(err?.message ?? 'Failed to fetch user')
     } finally {
       setGithubLoading(false)
+    }
+  }
+
+  async function handleAskAI(e) {
+    e.preventDefault()
+    setAiError('')
+    setAiLoading(true)
+
+    try {
+      const data = await askAI(aiPrompt)
+      setAiReply(data?.reply ?? '')
+      setAiPrompt('')
+    } catch (err) {
+      setAiReply('')
+      setAiError(err?.message ?? 'AI request failed')
+    } finally {
+      setAiLoading(false)
     }
   }
 
@@ -194,10 +216,31 @@ function App() {
               <PomodoroTimer />
             </WidgetCard>
 
-            <span
-              className="hidden lg:inline-block w-px self-stretch bg-gray-700"
-              aria-hidden="true"
-            />
+            <WidgetCard
+              id="ai-assistant"
+              icon={
+                <svg className="icon" role="presentation" aria-hidden="true">
+                  <use href="/icons.svg#documentation-icon"></use>
+                </svg>
+              }
+              title="AI Assistant"
+            >
+              <p>Your questions, answered</p>
+              <form className="github-form" onSubmit={handleAskAI}>
+                <input
+                  className="github-input"
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  placeholder="Ask AI..."
+                  aria-label="Ask AI"
+                />
+                <button className="github-button" type="submit" disabled={aiLoading}>
+                  {aiLoading ? 'Thinking...' : 'Ask AI'}
+                </button>
+              </form>
+              {aiError ? <p className="github-error">{aiError}</p> : null}
+              {aiReply ? <div className="github-result">{aiReply}</div> : null}
+            </WidgetCard>
 
             <WidgetCard
               id="tasks"
