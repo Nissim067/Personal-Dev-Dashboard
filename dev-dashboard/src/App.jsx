@@ -5,10 +5,31 @@ import heroImg from './assets/hero.png'
 import { Navbar } from './components/Navbar'
 import { Sidebar } from './components/Sidebar'
 import { WidgetCard } from './components/WidgetCard'
+import { fetchGithubUser } from './api'
 import './App.css'
 
 function App() {
   const [count, setCount] = useState(0)
+  const [username, setUsername] = useState('octocat')
+  const [githubUser, setGithubUser] = useState(null)
+  const [githubError, setGithubError] = useState('')
+  const [githubLoading, setGithubLoading] = useState(false)
+
+  async function handleGithubLookup(e) {
+    e.preventDefault()
+    setGithubError('')
+    setGithubLoading(true)
+
+    try {
+      const data = await fetchGithubUser(username)
+      setGithubUser(data)
+    } catch (err) {
+      setGithubUser(null)
+      setGithubError(err?.message ?? 'Failed to fetch user')
+    } finally {
+      setGithubLoading(false)
+    }
+  }
 
   return (
     <div className="dashboard-shell">
@@ -56,6 +77,34 @@ function App() {
               title="Documentation"
             >
               <p>Your questions, answered</p>
+              <form className="github-form" onSubmit={handleGithubLookup}>
+                <input
+                  className="github-input"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="GitHub username"
+                  aria-label="GitHub username"
+                />
+                <button className="github-button" type="submit" disabled={githubLoading}>
+                  {githubLoading ? 'Loading…' : 'Fetch'}
+                </button>
+              </form>
+              {githubError ? <p className="github-error">{githubError}</p> : null}
+              {githubUser ? (
+                <div className="github-result">
+                  <div className="github-name">
+                    {githubUser.name || githubUser.login}
+                  </div>
+                  <div className="github-stats">
+                    <span>
+                      <strong>{githubUser.followers}</strong> followers
+                    </span>
+                    <span>
+                      <strong>{githubUser.public_repos}</strong> repos
+                    </span>
+                  </div>
+                </div>
+              ) : null}
               <ul>
                 <li>
                   <a href="https://vite.dev/" target="_blank">
