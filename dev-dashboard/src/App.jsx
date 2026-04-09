@@ -5,6 +5,7 @@ import heroImg from './assets/hero.png'
 import { Navbar } from './components/Navbar'
 import { Sidebar } from './components/Sidebar'
 import { WidgetCard } from './components/WidgetCard'
+import { PomodoroTimer } from './components/PomodoroTimer'
 import { fetchGithubUser } from './api'
 import './App.css'
 
@@ -179,6 +180,25 @@ function App() {
                 </li>
               </ul>
             </WidgetCard>
+
+            <WidgetCard
+              id="focus-timer"
+              icon={
+                <svg className="icon" role="presentation" aria-hidden="true">
+                  <use href="/icons.svg#documentation-icon"></use>
+                </svg>
+              }
+              title="Focus Timer"
+            >
+              <p>25-minute Pomodoro session</p>
+              <PomodoroTimer />
+            </WidgetCard>
+
+            <span
+              className="hidden lg:inline-block w-px self-stretch bg-gray-700"
+              aria-hidden="true"
+            />
+
             <WidgetCard
               id="tasks"
               icon={
